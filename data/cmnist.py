@@ -7,13 +7,15 @@ import torch
     
     
 class CMNISTDataset(Dataset):
-    def __init__(self, 
+    def __init__(self,
+                 args, 
                  split: str, 
                  conflict_ratio: str, 
                  root_path: str,
                  with_edited: bool,
                  train_method: str):
         super().__init__()
+        self.args = args
         self.transform = {
             "train": T.Compose([T.ToTensor()]),
             "valid": T.Compose([T.ToTensor()]),
@@ -29,8 +31,8 @@ class CMNISTDataset(Dataset):
             self.conflict = glob.glob(os.path.join(root_path, 'benchmarks', 'cmnist', conflict_ratio+'pct', 'conflict', '*', '*'))
 
             # Edited cmnist
-            self.edited_align = glob.glob(os.path.join(root_path, 'preprocessed', 'cmnist', conflict_ratio+'pct', 'align', '*', 'imgs', '*')) # for each *, label and image_id
-            self.edited_conflict = glob.glob(os.path.join(root_path, 'preprocessed', 'cmnist', conflict_ratio+'pct', 'conflict', '*', 'imgs', '*'))
+            self.edited_align = glob.glob(os.path.join(root_path, self.args.preproc, 'cmnist', conflict_ratio+'pct', 'align', '*', 'imgs', '*')) # for each *, label and image_id
+            self.edited_conflict = glob.glob(os.path.join(root_path, self.args.preproc, 'cmnist', conflict_ratio+'pct', 'conflict', '*', 'imgs', '*'))
             
             self.data = self.align + self.conflict
             if with_edited and train_method not in ['pairing']:

@@ -9,12 +9,14 @@ import typing_extensions as typing
 
 class Gemini():
     def __init__(self,
+                 args,
                  dataset: str,
                  conflict_ratio: str,
-                 user_label: dict[str: str],
+                 class_name: dict[str: str],
                  root_path: str,
                  api_key: str='AIzaSyBnmZlprShV64CTkdWpKIg5U4THzGVS1Xo'):
         genai.configure(api_key=api_key)
+        self.args = args
         self.root_path = root_path
         self.api_key = api_key
         self.spare_api_keys = {
@@ -100,7 +102,7 @@ class Gemini():
     
     def generate_conflict_json(self):
         # Load tag_stats.json.
-        tag_stats_json_path = os.path.join(self.root_path, 'preprocessed', self.dataset, self.conflict_ratio+'pct', 'tag_stats.json')
+        tag_stats_json_path = os.path.join(self.root_path, self.args.preproc, self.dataset, self.conflict_ratio+'pct', 'tag_stats.json')
         if os.path.exists(tag_stats_json_path):
             with open(tag_stats_json_path, 'r') as file:
                 try:
@@ -119,7 +121,7 @@ class Gemini():
             conflict_pairs = {ele['input_keyword']: ele['output_keyword'] for ele in conflict_pairs}
             
             for bias in ['align', 'conflict']:
-                filtered_json_path = os.path.join(self.root_path, 'preprocessed', self.dataset, self.conflict_ratio+'pct', bias, label, 'jsons', 'filtered.json')
+                filtered_json_path = os.path.join(self.root_path, self.args.preproc, self.dataset, self.conflict_ratio+'pct', bias, label, 'jsons', 'filtered.json')
                 if os.path.exists(filtered_json_path):
                     with open(filtered_json_path, 'r') as file:
                         try:
@@ -135,7 +137,7 @@ class Gemini():
                         if bias_tag in filtered_json[image_id]['filtered_tags']:
                             filtered_json[image_id]['conflict_pairs'][bias_tag] = conflict_pairs[bias_tag]
                             
-                save_json_path = os.path.join(self.root_path, 'preprocessed', self.dataset, self.conflict_ratio+'pct', bias, label, 'jsons', 'conflict.json')
+                save_json_path = os.path.join(self.root_path, self.args.preproc, self.dataset, self.conflict_ratio+'pct', bias, label, 'jsons', 'conflict.json')
                 with open(save_json_path, 'w') as file:
                     json.dump(filtered_json, file, indent=4)
         

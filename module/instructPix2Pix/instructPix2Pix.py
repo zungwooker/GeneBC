@@ -5,26 +5,34 @@ from diffusers import StableDiffusionInstructPix2PixPipeline, EulerAncestralDisc
 from PIL import Image
 import itertools
 import gc
+from rich.progress import track
 
 class IP2P:
-    def __init__(self, 
-                 gpu_num: int, 
-                 dataset: str, 
-                 user_label: dict[str: str],
-                 conflict_ratio: str, 
-                 root_path: str,
-                 pretrained_path: str,
-                 random_seed: int,
-                 resize_in: int=512):
-        self.root_path = root_path
-        self.pretrained_path = os.path.join(pretrained_path, 'InstructPix2Pix')
-        self.conflict_ratio = conflict_ratio
-        self.dataset = dataset
-        self.device = torch.device(f'cuda:{str(gpu_num)}' if torch.cuda.is_available() else 'cpu')
+    def __init__(self,
+                 args,
+                 class_name: dict[str: str]):
+        self.args = args
+        self.class_name = class_name
+        self.pretrained_path = os.path.join(args.pretrained_path, 'InstructPix2Pix')
+        self.device = torch.device(f'cuda:{str(args.gpu_num)}' if torch.cuda.is_available() else 'cpu')
         self.pipe = None
-        self.generator = torch.Generator(self.device).manual_seed(random_seed)
-        self.user_label = user_label
-        self.resize_in = resize_in
+        self.generator = torch.Generator(self.device).manual_seed(args.random_seed)
+        
+        
+        itg_tag_stats_path = os.path.join(self.args.root_path, 
+                                          self.args.preproc,
+                                          self.args.dataset,
+                                          self.args.conflict_ratio+'pct',
+                                          'tag_stats.json')
+        if os.path.exists(itg_tag_stats_path):
+            with open(itg_tag_stats_path, 'r') as file:
+                try:
+                    itg_tag_stats = json.load(file)
+                except json.JSONDecodeError:
+                    raise RuntimeError("An error occurred while loading the existing json file.")
+        else:
+            raise RuntimeError(f"tag_stats.json does not exist.\nPath: {itg_tag_stats_path}")
+        self.itg_tag_stats = itg_tag_stats
         
     def load_model(self):
         model_id = "timbrooks/instruct-pix2pix"
@@ -34,76 +42,79 @@ class IP2P:
                                                                            cache_dir=self.pretrained_path)
         self.pipe.to(self.device)
         self.pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(self.pipe.scheduler.config)
+        self.pipe.set_progress_bar_config(disable=True)
         
     def off_model(self):
         del self.pipe
         torch.cuda.empty_cache()
         gc.collect()
-        self.pip = None
+        self.pipe = None
         
     def resize_image(self, inout: str, image_path: str=None, image: Image.Image=None):
         if inout == 'in':
             image = Image.open(image_path)
-            resized_image = image.resize((self.resize_in, self.resize_in), Image.BICUBIC)
+            resized_image = image.resize((self.args.resize_in, self.args.resize_in), Image.BICUBIC)
             return resized_image
         elif inout == 'out':
-            if self.dataset == 'cmnist':
+            if self.args.dataset == 'cmnist':
                 resized_image = image.resize((28, 28), Image.BICUBIC)
-            elif self.dataset == 'bffhq':
+            elif self.args.dataset == 'bffhq':
                 resized_image = image.resize((224, 224), Image.BICUBIC)
             return resized_image
     
-    def return_insts(self, user_label: str, conflict_pairs: dict[str: list[str]]):
-        prompts = []
-        for bias in conflict_pairs:
-            for conflict in conflict_pairs[bias]:
-                prompts.append(f"Make {user_label} into {user_label} {conflict}.")
-        return prompts
+    def return_insts(self, class_name: str, bias_conflict_tags: list[str]):
+        return [f"Turn {class_name} into {class_name} {tag}" for tag in bias_conflict_tags]
     
     def edit_images(self):
         if self.pipe == None: self.load_model()
         
-        for label, bias in itertools.product(self.user_label, ['align', 'conflict']):
+        for class_idx, bias_type in itertools.product(self.class_name, ['align', 'conflict']):
             # Load conflict.json
-            conflict_json_path = os.path.join(self.root_path, 
-                                              'preprocessed', 
-                                              self.dataset, 
-                                              self.conflict_ratio+'pct', 
-                                              bias, label, 'jsons', 
-                                              'conflict.json')
-            if os.path.exists(conflict_json_path):
-                with open(conflict_json_path, 'r') as file:
+            tags_json_path = os.path.join(self.args.root_path, 
+                                              self.args.preproc, 
+                                              self.args.dataset, 
+                                              self.args.conflict_ratio+'pct', 
+                                              bias_type, class_idx, 'jsons', 
+                                              'tags.json')
+            if os.path.exists(tags_json_path):
+                with open(tags_json_path, 'r') as file:
                     try:
-                        conflict_json = json.load(file)
+                        tags_json = json.load(file)
                     except json.JSONDecodeError:
                         raise RuntimeError("An error occurred while loading the existing json file.")
             else:
-                raise RuntimeError(f"conflict.json does not exist.\nPath: {conflict_json_path}")
+                raise RuntimeError(f"tags.json does not exist.\nPath: {tags_json_path}")
             
-            for image_id in conflict_json:
-                origin_image_path = os.path.join(self.root_path, 
+            for image_id in track(tags_json, description=f"Editing... | class_idx: {class_idx}, bias: {bias_type}"):
+                bias_tags_keys = list(self.itg_tag_stats[class_idx]['bias_tags'].keys())
+                result = all(tag not in tags_json[image_id]['tags'] for tag in bias_tags_keys)
+                if result: continue # That sample is bias-conflict; no need to edit that.
+                    
+                origin_image_path = os.path.join(self.args.root_path, 
                                                  'benchmarks', 
-                                                 self.dataset, 
-                                                 self.conflict_ratio+'pct', 
-                                                 bias, label, image_id)
+                                                 self.args.dataset, 
+                                                 self.args.conflict_ratio+'pct', 
+                                                 bias_type, class_idx, image_id)
                 input_image = self.resize_image(inout='in', image_path=origin_image_path)
-                input_insts = self.return_insts(user_label=conflict_json[image_id]['user_label'],
-                                                conflict_pairs=conflict_json[image_id]['conflict_pairs'])
+                input_insts = self.return_insts(class_name=self.class_name[class_idx],
+                                                bias_conflict_tags=self.itg_tag_stats[class_idx]['bias_conflict_tags'])
                 for inst in input_insts:
+                    if self.args.bg_supvis and self.args.dataset == 'cmnist': 
+                        inst += ' and background black'
                     images = self.pipe(inst, image=input_image, 
                                        num_inference_steps=10, 
-                                       image_guidance_scale=1, 
+                                       image_guidance_scale=self.args.image_guidance_scale,
                                        generator=self.generator).images
-                    save_path = os.path.join(self.root_path,
-                                             'preprocessed', 
-                                             self.dataset, 
-                                             self.conflict_ratio+'pct', 
-                                             bias, label, 'imgs', 
+                    save_path = os.path.join(self.args.root_path,
+                                             self.args.preproc, 
+                                             self.args.dataset, 
+                                             self.args.conflict_ratio+'pct', 
+                                             bias_type, class_idx, 'imgs', 
                                              f"{inst.replace(' ', '-')}_{image_id}")
                     out_image = self.resize_image(inout='out', image=images[0])
                     out_image.save(save_path, format='PNG')
                     
-            print(f"[Done] IP2P: Images have been edited. | label: {label} bias: {bias}")
+            print(f"[Done] IP2P: Images have been edited. | class index: {class_idx} bias type: {bias_type}")
             
         self.off_model()
         print(f"[Done] IP2P: Images have been edited. | Whole dataset")

@@ -380,6 +380,6 @@ def tag2text(pretrained='', **kwargs):
         else:
             model, msg = load_checkpoint(model, pretrained)
         print('vit:', kwargs['vit'])
-#         print('msg', msg)
+        
     return model
 

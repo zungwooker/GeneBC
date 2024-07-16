@@ -9,47 +9,27 @@ def process_gate(args: argparse.ArgumentParser, file_name: str):
         print(f"[Process gate] Force process.")
         return False
     
-    user_label_path = os.path.join(args.root_path, 'benchmarks', args.dataset, 'user_label.json') # benchmarks/{args.dataset}/user_label.json
-    if os.path.exists(user_label_path):
-        with open(user_label_path, 'r') as file:
+    class_name_path = os.path.join(args.root_path, 'benchmarks', args.dataset, 'class_name.json') # benchmarks/{args.dataset}/class_name.json
+    if os.path.exists(class_name_path):
+        with open(class_name_path, 'r') as file:
             try:
-                user_label = json.load(file)
+                class_name = json.load(file)
             except json.JSONDecodeError:
                 raise RuntimeError("An error occurred while loading the existing json file.")
     else:
-        raise RuntimeError(f"user_label.json does not exist.\nPath: {user_label_path}")
+        raise RuntimeError(f"class_name.json does not exist.\nPath: {class_name_path}")
     
     if '.json' in file_name:
-        for label, bias in itertools.product(user_label, ['align', 'conflict']):
-            json_path = os.path.join(args.root_path, 'preprocessed', args.dataset, args.conflict_ratio+'pct', bias, label, 'jsons', file_name)
+        for label, bias in itertools.product(class_name, ['align', 'conflict']):
+            json_path = os.path.join(args.root_path, args.preproc, args.dataset, args.conflict_ratio+'pct', bias, label, 'jsons', file_name)
             if not os.path.exists(json_path):
-                print(f"[Process gate] File missing {json_path}")
-                print(f"[Process gate] Working on {file_name}...")
+                print(f"[Warning] Process gate: File missing {json_path}")
+                print(f"[Work] Process gate: Working on {file_name}...")
                 return False
     elif file_name == 'png':
-        for label, bias in itertools.product(user_label, ['align', 'conflict']):
-            conflict_json_path = os.path.join(args.root_path, 'preprocessed', args.dataset, args.conflict_ratio+'pct', bias, label, 'jsons', 'conflict.json')
-            conflict_imgs_path = os.path.join(args.root_path, 'preprocessed', args.dataset, args.conflict_ratio+'pct', bias, label, 'imgs', '*.png')
-            if os.path.exists(conflict_json_path):
-                with open(conflict_json_path, 'r') as file:
-                    try:
-                        conflict_json = json.load(file)
-                    except json.JSONDecodeError:
-                        raise RuntimeError("An error occurred while loading the existing json file.")
-            else:
-                raise RuntimeError(f"conflict.json does not exist.\nPath: {conflict_json_path}")
-            
-            cnt_combi = 0
-            cnt_edtied = len(glob.glob(conflict_imgs_path))
-            for image_id in conflict_json:
-                for bias in conflict_json[image_id]['conflict_pairs']:
-                    cnt_combi += len(conflict_json[image_id]['conflict_pairs'][bias])
-            if cnt_combi != len(glob.glob(conflict_imgs_path)):
-                print(f"[Process gate] File missing. | Edited images")
-                print(f"label: {label} bias: {bias} cnt_combi: {cnt_combi} cnt_edited: {cnt_edtied}")
-                print(f"[Process gate] Working on {file_name}...")
-                return False
+        print("[WIP] Process gate: wip for edit...")
+        return False
         
-    print(f"[Process gate] All files exists. {file_name}")
+    print(f"[Done] Process gate: All files exists. {file_name}")
     return True
             

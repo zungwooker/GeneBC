@@ -1,7 +1,3 @@
-# import sys
-# import os
-# current_dir = os.path.dirname(os.path.abspath(__file__))
-# sys.path.append(current_dir)
 from pathlib import Path
 import os
 import glob
@@ -9,7 +5,7 @@ from itertools import chain
 import torch
 import torch.utils
 import torch.utils.data
-from tqdm import tqdm
+from rich.progress import track
 import wandb
 import itertools
 from concurrent.futures import ThreadPoolExecutor
@@ -97,7 +93,7 @@ class Learner():
         self.models['biased'].train()
         self.models['debiased'].train()
         
-        for batch_idx, (X, y, *_) in enumerate(tqdm(self.dataloaders['train'], desc=f'Train | epoch {epoch} ...', leave=True, dynamic_ncols=True)):
+        for batch_idx, (X, y, *_) in track(enumerate(self.dataloaders['train']), description=f'Train | epoch {epoch}...'):
             X, y = X.to(self.device), y.to(self.device)
             
             # Forward: difficulty score
@@ -135,7 +131,7 @@ class Learner():
         self.models['debiased'] = self.models['debiased'].to(self.device)
         self.models['debiased'].train()
         
-        for batch_idx, (X, y, *_) in enumerate(tqdm(self.dataloaders['train'], desc=f'Train | epoch {epoch}...', leave=True, dynamic_ncols=True)):
+        for batch_idx, (X, y, *_) in track(enumerate(self.dataloaders['train']), description=f'Train | epoch {epoch}...'):
             X, y = X.to(self.device), y.to(self.device)
                 
             # Forward: Losses
@@ -157,22 +153,23 @@ class Learner():
                 })
                 
 
+    # Work in progress
     def pairing_train(self, epoch):
         self.models['debiased'] = self.models['debiased'].to(self.device)
         self.models['debiased'].train()
         
         def find_image_paths(path, image_id):
-            context_path = path.replace('benchmarks', 'preprocessed').replace(f'{image_id}', f'imgs/*_{image_id}')
+            context_path = path.replace('benchmarks', self.args.preproc).replace(f'{image_id}', f'imgs/*_{image_id}')
             return glob.glob(context_path)
-
-        for batch_idx, (X, y, bias, path) in enumerate(tqdm(self.dataloaders['train'], desc=f'Train | epoch {epoch}...', leave=True, dynamic_ncols=True)):
+        
+        for batch_idx, (X, y, *_) in track(enumerate(self.dataloaders['train']), description=f'Train | epoch {epoch}...'):
             X, y = X.to(self.device), y.to(self.device)
             
             # Configure batch
             image_ids = [os.path.basename(image) for image in path]
             # pair_image_paths = []
             # for path_idx in range(len(path)):
-            #     context_path = path[path_idx].replace('benchmarks', 'preprocessed').replace(f'{image_ids[path_idx]}', f'imgs/*_{image_ids[path_idx]}')
+            #     context_path = path[path_idx].replace('benchmarks', self.args.preproc).replace(f'{image_ids[path_idx]}', f'imgs/*_{image_ids[path_idx]}')
             #     pair_image_paths += glob.glob(context_path)
             with ThreadPoolExecutor() as executor:
                 pair_image_paths = list(chain.from_iterable(executor.map(find_image_paths, path, image_ids)))
@@ -217,7 +214,7 @@ class Learner():
                     'total_num': 0,
                     'accuracy': None,
                 }
-                for batch_idx, (X, y, bias, *_) in enumerate(tqdm(self.dataloaders[split], desc=f'Eval | split {split}, bias_attr {bias_attribute}...', leave=True, dynamic_ncols=True)):
+                for batch_idx, (X, y, *_) in track(enumerate(self.dataloaders[split]), description=f'Eval | split {split}, bias_attr {bias_attribute} ...'):
                     X, y, bias = X.to(self.device), y.to(self.device), bias.to(self.device)
                     if bias_attribute == 'aligned':
                         X, y = X[y==bias], y[y==bias]

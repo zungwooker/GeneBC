@@ -8,16 +8,18 @@ from tqdm import tqdm
 
 
 class BartLargeMnli():
-    def __init__(self, 
+    def __init__(self,
+                 args,
                  gpu_num: int,
                  dataset: str,
-                 user_label: dict[str: str],
+                 class_name: dict[str: str],
                  conflict_ratio: str,
                  root_path: str,
                  pretrained_path: str,
                  sim_thres: float,):
+        self.args = args
         self.dataset = dataset
-        self.user_label = user_label
+        self.class_name = class_name
         self.conflict_ratio = conflict_ratio
         self.sim_thres = sim_thres
         self.model = None
@@ -65,9 +67,9 @@ class BartLargeMnli():
         if self.classifier == None: self.load_model()
         
         # For each class and align/conflict, generate filtered.json.
-        for label, bias in itertools.product(self.user_label, ['align', 'conflict']):
+        for label, bias in itertools.product(self.class_name, ['align', 'conflict']):
             # Load tag2text.json.
-            tag2text_json_path = os.path.join(self.root_path, 'preprocessed', self.dataset, self.conflict_ratio+'pct', bias, label, 'jsons', 'tag2text.json')
+            tag2text_json_path = os.path.join(self.root_path, self.args.preproc, self.dataset, self.conflict_ratio+'pct', bias, label, 'jsons', 'tag2text.json')
             if os.path.exists(tag2text_json_path):
                 with open(tag2text_json_path, 'r') as file:
                     try:
@@ -77,10 +79,10 @@ class BartLargeMnli():
             else:
                 raise RuntimeError(f"tag2text.json does not exist.\nPath: {tag2text_json_path}")
             
-            # Compute similiarity between user_label and tags.
+            # Compute similiarity between class_name and tags.
             # Assign filtered tags and lable tags.
             for image_id in tqdm(tag2text_json, desc=f"filtered.json... | label: {label}, bias: {bias}"):
-                tags_scores, filtered_tags_scores, label_tags_scores = self.compute_sim(caption=f"A photo of {tag2text_json[image_id]['user_label']}",
+                tags_scores, filtered_tags_scores, label_tags_scores = self.compute_sim(caption=f"A photo of {tag2text_json[image_id]['class_name']}",
                                                                                         tags=tag2text_json[image_id]['tags'])
                 tag2text_json[image_id]['tags'] = tags_scores
                 tag2text_json[image_id]['filtered_tags'] = filtered_tags_scores
@@ -88,7 +90,7 @@ class BartLargeMnli():
                 tag2text_json[image_id]['sim_thres'] = self.sim_thres
                 
             # Save /{class}/{bias}/tag2text.json
-            save_json_path = os.path.join(self.root_path, 'preprocessed', self.dataset, self.conflict_ratio+'pct', bias, label, 'jsons', 'filtered.json')
+            save_json_path = os.path.join(self.root_path, self.args.preproc, self.dataset, self.conflict_ratio+'pct', bias, label, 'jsons', 'filtered.json')
             with open(save_json_path, 'w') as file:
                 json.dump(tag2text_json, file, indent=4)
             
