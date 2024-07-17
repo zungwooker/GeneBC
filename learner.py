@@ -31,17 +31,19 @@ class Learner():
         
         # Datasets & Dataloaders
         self.datasets = {
-            'train': get_dataset(dataset=self.args.dataset,
+            'train': get_dataset(args=self.args,
+                                 dataset=self.args.dataset,
                                  split='train',
                                  conflict_ratio=self.args.conflict_ratio,
                                  with_edited=self.args.with_edited,
-                                 root_path=self.args.root_path,
-                                 train_method=self.args.train_method),                                  
-            'valid': get_dataset(dataset=self.args.dataset,
+                                 root_path=self.args.root_path),                                  
+            'valid': get_dataset(args=self.args,
+                                 dataset=self.args.dataset,
                                  split='valid',
                                  conflict_ratio=self.args.conflict_ratio,
                                  root_path=self.args.root_path),            
-            'test': get_dataset(dataset=self.args.dataset,
+            'test': get_dataset(args=self.args,
+                                dataset=self.args.dataset,
                                 split='test',
                                 root_path=self.args.root_path)
             }
@@ -127,11 +129,37 @@ class Learner():
                 })
 
 
-    def naive_train(self, epoch):
+    def train(self, epoch):
         self.models['debiased'] = self.models['debiased'].to(self.device)
         self.models['debiased'].train()
         
-        for batch_idx, (X, y, *_) in track(enumerate(self.dataloaders['train']), description=f'Train | epoch {epoch}...'):
+        for batch_idx, (X, y, *_) in track(enumerate(self.dataloaders['train']), description=f'Train | epoch {epoch}...', total=len(self.dataloaders['train'])):
+            X, y = X.to(self.device), y.to(self.device)
+                
+            # Forward: Losses
+            logits_d = self.models['debiased'](X)
+            CELoss_d = self.criterions['CELoss'](logits_d, y)
+            
+            # Total loss configuration
+            total_loss =  CELoss_d.mean()
+            
+            # Update
+            self.optims['debiased'].zero_grad()
+            total_loss.backward()
+            self.optims['debiased'].step()
+            
+            if self.args.wandb:
+                wandb.log({
+                    "Iter step": (batch_idx+1) + epoch*len(self.dataloaders['train']),
+                    "training/D: CELoss": CELoss_d.mean(),
+                })
+                
+    def mixup_train(self, epoch):
+        self.models['debiased'] = self.models['debiased'].to(self.device)
+        self.models['debiased'].train()
+        
+        for batch_idx, (X, y, *_) in track(enumerate(self.dataloaders['train']), description=f'Train | epoch {epoch}...', total=len(self.dataloaders['train'])):
+            
             X, y = X.to(self.device), y.to(self.device)
                 
             # Forward: Losses
@@ -214,8 +242,9 @@ class Learner():
                     'total_num': 0,
                     'accuracy': None,
                 }
-                for batch_idx, (X, y, *_) in track(enumerate(self.dataloaders[split]), description=f'Eval | split {split}, bias_attr {bias_attribute} ...'):
+                for batch_idx, (X, y, bias, *_) in track(enumerate(self.dataloaders[split]), description=f'Eval | split {split}, bias_attr {bias_attribute} ...', total=len(self.dataloaders[split])):
                     X, y, bias = X.to(self.device), y.to(self.device), bias.to(self.device)
+                    
                     if bias_attribute == 'aligned':
                         X, y = X[y==bias], y[y==bias]
                     if bias_attribute == 'conflict':
@@ -237,10 +266,15 @@ class Learner():
                     metrics[split][bias_attribute]['total_num'] += y.size(0)
                     metrics[split][bias_attribute]['correct'] += correct
                 
-                metrics[split][bias_attribute]['loss'] = metrics[split][bias_attribute]['total_loss']/metrics[split][bias_attribute]['total_num']
-                metrics[split][bias_attribute]['accuracy'] = metrics[split][bias_attribute]['correct']/metrics[split][bias_attribute]['total_num']
+                if metrics[split][bias_attribute]['total_num'] > 0:
+                    metrics[split][bias_attribute]['loss'] = metrics[split][bias_attribute]['total_loss']/metrics[split][bias_attribute]['total_num']
+                    metrics[split][bias_attribute]['accuracy'] = metrics[split][bias_attribute]['correct']/metrics[split][bias_attribute]['total_num']
+                else:
+                    metrics[split][bias_attribute]['loss'] = 0.0
+                    metrics[split][bias_attribute]['accuracy'] = 0.0        
         
         self.metrics = metrics
+        print(metrics)
 
 
     def wandb_switch(self, switch):
@@ -249,7 +283,8 @@ class Learner():
                 project=self.args.projcode,
                 name=f'{self.args.run_name} | seed: {self.args.seed}',
                 config={
-                }
+                },
+                settings=wandb.Settings(start_method="fork")
             )
             wandb.define_metric("training/*", step_metric="Iter step")
             
@@ -262,13 +297,13 @@ class Learner():
             wandb.finish()
                  
                  
-    def wandb_log(self, epoch, postfix):
+    def wandb_log(self, epoch):
         splits = ['train', 'valid', 'test']
         bias_attributes = ['whole', 'aligned', 'conflict']
         for split, bias_attribute in itertools.product(splits, bias_attributes):
             wandb.log({
                 "Epoch step": epoch,
-                f"{split}_{bias_attribute}_{postfix}/Total Loss(epoch sum)": self.metrics[split][bias_attribute]['total_loss'],
-                f"{split}_{bias_attribute}_{postfix}/Total Loss(sample-wise)": self.metrics[split][bias_attribute]['loss'],
-                f"{split}_{bias_attribute}_{postfix}/Accuracy": self.metrics[split][bias_attribute]['accuracy'],
+                f"{split}_{bias_attribute}/Total Loss(epoch sum)": self.metrics[split][bias_attribute]['total_loss'],
+                f"{split}_{bias_attribute}/Total Loss(sample-wise)": self.metrics[split][bias_attribute]['loss'],
+                f"{split}_{bias_attribute}/Accuracy": self.metrics[split][bias_attribute]['accuracy'],
             })

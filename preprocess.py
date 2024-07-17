@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+import time
 
 from module import Bias2Tag, IP2P, TagStats
 from utils import process_gate, Timer, makedir_preprocessed
@@ -50,7 +51,7 @@ def main():
                          class_name=class_name)
     
     # Timer
-    timetabel_path = os.path.join(args.root_path, args.preproc, args.dataset, args.conflict_ratio+'pct', 'timetable.json')
+    timetabel_path = os.path.join(args.root_path, args.preproc, args.dataset, args.conflict_ratio+'pct', f'timetable_{time.strftime("%Y.%m.%d.%H.%M.%S", time.localtime())}.json')
     timer = Timer(save_path=timetabel_path)
     
     # Make tag2text.json

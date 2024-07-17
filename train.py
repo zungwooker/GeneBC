@@ -5,6 +5,7 @@ from learner import Learner
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-root_path", required=True, type=str, help="root path")
+    parser.add_argument("-preproc", type=str, help="Dir of preprocessed data.")
     parser.add_argument('-dataset', required=True, type=str, help="dataset")
     parser.add_argument('-conflict_ratio', required=True, type=str, help="conflict_ratio")
     parser.add_argument('-train_method', required=True, type=str, help="train method")
@@ -24,12 +25,22 @@ def main():
     
     learner.wandb_switch(switch='start')
     
-    if args.train_method == 'naive':
+    if args.train_method in ['naive', 'with_edited']:
         # Train & eval
         for epoch in range(1, args.epochs+1):
-            learner.naive_train(epoch=epoch)
+            learner.train(epoch=epoch)
             learner.eval(model_name='debiased')
-            learner.wandb_log(epoch=epoch, postfix='NaiveSingleModel')
+            learner.wandb_log(epoch=epoch)
+        # Save
+        learner.save_model(model_name='debiased',
+                           save_name='debiased.pth')
+        
+    elif args.train_method == 'mixup':
+        # Train & eval
+        for epoch in range(1, args.epochs+1):
+            learner.mixup_train(epoch=epoch)
+            learner.eval(model_name='debiased')
+            learner.wandb_log(epoch=epoch)
         # Save
         learner.save_model(model_name='debiased',
                            save_name='debiased.pth')
@@ -42,7 +53,7 @@ def main():
         for epoch in range(1, args.epochs+1):
             learner.pairing_train(epoch=epoch)
             learner.eval(model_name='debiased')
-            learner.wandb_log(epoch=epoch, postfix='PairingSingleModel')
+            learner.wandb_log(epoch=epoch)
         # Save
         learner.save_model(model_name='debiased',
                            save_name='debiased.pth')
