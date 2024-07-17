@@ -27,6 +27,7 @@ def main():
     # Instruct Pix2Pix
     parser.add_argument("-image_guidance_scale", type=float, help="Image guidance scale size for instructPix2Pix")
     parser.add_argument("-resize_in", type=int, default=512, help="Input size for instructPix2Pix")
+    parser.add_argument("-edit_class_idx", type=str, required=False, help="Class index for editing")
 
     args = parser.parse_args()
     

@@ -5,10 +5,6 @@ import argparse
 import itertools
 
 def process_gate(args: argparse.ArgumentParser, file_name: str):
-    if args.force: 
-        print(f"[Process gate] Force process.")
-        return False
-    
     class_name_path = os.path.join(args.root_path, 'benchmarks', args.dataset, 'class_name.json') # benchmarks/{args.dataset}/class_name.json
     if os.path.exists(class_name_path):
         with open(class_name_path, 'r') as file:

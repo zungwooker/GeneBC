@@ -21,7 +21,6 @@ def main():
     
     learner = Learner(args=args)
     learner.prepare()
-    breakpoint()
     
     learner.wandb_switch(switch='start')
     

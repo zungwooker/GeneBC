@@ -67,15 +67,16 @@ class IP2P:
     
     def edit_images(self):
         if self.pipe == None: self.load_model()
-        
-        for class_idx, bias_type in itertools.product(self.class_name, ['align', 'conflict']):
-            # Load conflict.json
+
+        iter_class = self.args.edit_class_idx.split(',') if self.args.edit_class_idx else self.class_name
+        for class_idx, bias_type in itertools.product(iter_class, ['align', 'conflict']):
+            # Load tags.json
             tags_json_path = os.path.join(self.args.root_path, 
-                                              self.args.preproc, 
-                                              self.args.dataset, 
-                                              self.args.conflict_ratio+'pct', 
-                                              bias_type, class_idx, 'jsons', 
-                                              'tags.json')
+                                          self.args.preproc, 
+                                          self.args.dataset, 
+                                          self.args.conflict_ratio+'pct', 
+                                          bias_type, class_idx, 'jsons', 
+                                          'tags.json')
             if os.path.exists(tags_json_path):
                 with open(tags_json_path, 'r') as file:
                     try:
@@ -84,8 +85,27 @@ class IP2P:
                         raise RuntimeError("An error occurred while loading the existing json file.")
             else:
                 raise RuntimeError(f"tags.json does not exist.\nPath: {tags_json_path}")
+
+            # Load edited.json
+            edited_json_path = os.path.join(self.args.root_path, 
+                                            self.args.preproc, 
+                                            self.args.dataset, 
+                                            self.args.conflict_ratio+'pct', 
+                                            bias_type, class_idx, 'jsons', 
+                                            'edited.json')
+            if os.path.exists(edited_json_path):
+                with open(edited_json_path, 'r') as file:
+                    try:
+                        edited = json.load(file)
+                    except json.JSONDecodeError:
+                        raise RuntimeError("An error occurred while loading the existing json file.")
+            else:
+                edited = {image_id: False for image_id in tags_json}
             
+            edit_cnt = 0
             for image_id in track(tags_json, description=f"Editing... | class_idx: {class_idx}, bias: {bias_type}"):
+                if edited[image_id]: continue
+                
                 bias_tags_keys = list(self.itg_tag_stats[class_idx]['bias_tags'].keys())
                 result = all(tag not in tags_json[image_id]['tags'] for tag in bias_tags_keys)
                 if result: continue # That sample is bias-conflict; no need to edit that.
@@ -113,8 +133,17 @@ class IP2P:
                                              f"{inst.replace(' ', '-')}_{image_id}")
                     out_image = self.resize_image(inout='out', image=images[0])
                     out_image.save(save_path, format='PNG')
+                
+                edited[image_id] = True
+                edit_cnt += 1
+                if edit_cnt % 10 == 0:
+                    with open(edited_json_path, 'w') as file:
+                        json.dump(edited, file, indent=4)
                     
-            print(f"[Done] IP2P: Images have been edited. | class index: {class_idx} bias type: {bias_type}")
+            print(f"[WIP] IP2P: Images have been edited. | class index: {class_idx} bias type: {bias_type}")
             
         self.off_model()
-        print(f"[Done] IP2P: Images have been edited. | Whole dataset")
+        if not self.args.edit_class_idx:
+            print(f"[Done] IP2P: Images have been edited. | Whole dataset")
+        else:
+            print(f"[Done] IP2P: Images have been edited. | Class index: {self.args.edit_class_idx}")
