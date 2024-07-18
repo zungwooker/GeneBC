@@ -21,19 +21,22 @@ def get_dataset(args,
         raise RuntimeError(f"class_name.json does not exist.\nPath: {class_name_path}")
     
     # Load tag_stats
-    tag_stats_path = os.path.join(args.root_path, 
-                                  args.preproc,
-                                  args.dataset,
-                                  args.conflict_ratio+'pct',
-                                  'tag_stats.json')
-    if os.path.exists(tag_stats_path):
-        with open(tag_stats_path, 'r') as file:
-            try:
-                tag_stats = json.load(file)
-            except json.JSONDecodeError:
-                raise RuntimeError("An error occurred while loading the existing json file.")
+    if args.train_method not in ['naive']:
+        tag_stats_path = os.path.join(args.root_path, 
+                                    args.preproc,
+                                    args.dataset,
+                                    args.conflict_ratio+'pct',
+                                    'tag_stats.json')
+        if os.path.exists(tag_stats_path):
+            with open(tag_stats_path, 'r') as file:
+                try:
+                    tag_stats = json.load(file)
+                except json.JSONDecodeError:
+                    raise RuntimeError("An error occurred while loading the existing json file.")
+        else:
+            raise RuntimeError(f"tag_stats.json does not exist.\nPath: {tag_stats_path}")
     else:
-        raise RuntimeError(f"tag_stats.json does not exist.\nPath: {tag_stats_path}")
+        tag_stats = None
     
     # Default: without edited images.
     if dataset == 'cmnist':

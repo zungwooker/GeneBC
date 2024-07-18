@@ -5,7 +5,6 @@ python train.py \
     -dataset bffhq \
     -conflict_ratio '0.5' \
     -train_method 'naive' \
-    -with_edited \
     -lr 0.0001 \
     -epochs 100 \
     -batch_size 64 \
@@ -13,4 +12,4 @@ python train.py \
     -gpu_num 6 \
     -wandb \
     -projcode='GeneBC-bFFHQ' \
-    -run_name='naive-with_edited'
+    -run_name='naive'

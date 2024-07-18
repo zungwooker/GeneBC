@@ -5,7 +5,7 @@ from learner import Learner
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-root_path", required=True, type=str, help="root path")
-    parser.add_argument("-preproc", type=str, help="Dir of preprocessed data.")
+    parser.add_argument("-preproc", type=str, default='none', help="Dir of preprocessed data.")
     parser.add_argument('-dataset', required=True, type=str, help="dataset")
     parser.add_argument('-conflict_ratio', required=True, type=str, help="conflict_ratio")
     parser.add_argument('-train_method', required=True, type=str, help="train method")
