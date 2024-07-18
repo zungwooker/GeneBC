@@ -25,20 +25,10 @@ def main():
     
     learner.wandb_switch(switch='start')
     
-    if args.train_method in ['naive', 'with_edited']:
+    if args.train_method in ['naive', 'with_edited', 'mixup']:
         # Train & eval
         for epoch in range(1, args.epochs+1):
             learner.train(epoch=epoch)
-            learner.eval(model_name='debiased')
-            learner.wandb_log(epoch=epoch)
-        # Save
-        learner.save_model(model_name='debiased',
-                           save_name='debiased.pth')
-        
-    elif args.train_method == 'mixup':
-        # Train & eval
-        for epoch in range(1, args.epochs+1):
-            learner.mixup_train(epoch=epoch)
             learner.eval(model_name='debiased')
             learner.wandb_log(epoch=epoch)
         # Save

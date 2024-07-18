@@ -22,10 +22,10 @@ def get_dataset(args,
     
     # Load tag_stats
     tag_stats_path = os.path.join(args.root_path, 
-                                        args.preproc,
-                                        args.dataset,
-                                        args.conflict_ratio+'pct',
-                                        'tag_stats.json')
+                                  args.preproc,
+                                  args.dataset,
+                                  args.conflict_ratio+'pct',
+                                  'tag_stats.json')
     if os.path.exists(tag_stats_path):
         with open(tag_stats_path, 'r') as file:
             try:

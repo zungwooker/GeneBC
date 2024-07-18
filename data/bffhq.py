@@ -76,7 +76,7 @@ class bFFHQDataset(Dataset):
         
         insts = []
         for bias_conflict_tag in bias_conflict_tags:
-            inst = f"Turn-{self.class_name[class_idx]}-into-{self.class_name[class_idx]}-{bias_conflict_tag}"
+            inst = f"Turn-{self.class_name[class_idx]}-into-{self.class_name[class_idx]}-{bias_conflict_tag}".replace(' ', '-')
             insts.append(inst)
     
         return insts

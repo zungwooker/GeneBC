@@ -5,8 +5,8 @@ python preprocess.py \
     -dataset bffhq \
     -conflict_ratio '0.5' \
     -n_bias 1 \
-    -root_path '/mnt/sdc/Debiasing' \
-    -pretrained_path '/mnt/sdc/Debiasing/pretrained' \
+    -root_path '/home/zungwooker/Debiasing' \
+    -pretrained_path '/home/zungwooker/Debiasing/pretrained' \
     -preproc 'preproc_youngold_igs1.0' \
     -random_seed 0 \
     -tag2text_thres 0.68 \
