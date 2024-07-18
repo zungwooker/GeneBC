@@ -28,6 +28,15 @@ class bFFHQDataset(Dataset):
                 T.ToTensor(),
                 T.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
                 ]),
+            "before_mixup_train": T.Compose([
+                T.Resize((224,224)),
+                T.ToTensor(),
+                T.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                ]),
+            "after_mixup_train": T.Compose([
+                T.RandomCrop(224, padding=4),
+                T.RandomHorizontalFlip(),
+                ]),
             "valid": T.Compose([
                 T.Resize((224,224)),
                 T.ToTensor(),
@@ -112,22 +121,35 @@ class bFFHQDataset(Dataset):
         return pairs
         
     def mix_up(self, original_img_path, edited_img_paths):
-        original_img = self.transform[self.split](Image.open(original_img_path).convert('RGB'))
+        original_img = self.transform['before_mixup_train'](Image.open(original_img_path).convert('RGB'))
         exist_edited_img_paths = [path for path in edited_img_paths if os.path.exists(path)]
         
         if exist_edited_img_paths:
-            lambda_ = torch.rand(1)
-            original_ratio = torch.max(lambda_, 1-lambda_)
-            remaining_ratio = 1 - original_ratio
-            
-            edited_imgs = torch.stack([
-                self.transform[self.split](Image.open(path).convert('RGB')) for path in exist_edited_img_paths
-            ])
-            
-            edited_ratios = torch.rand(edited_imgs.size(0))
-            edited_ratios = (edited_ratios / edited_ratios.sum()) * remaining_ratio
-            
-            mixed_image = original_img * original_ratio + (edited_imgs * edited_ratios.view(-1, 1, 1, 1)).sum(dim=0)
+            if self.args.maintain_origin_mixup:
+                lambda_ = torch.rand(1)
+                original_ratio = torch.max(lambda_, 1-lambda_)
+                remaining_ratio = 1 - original_ratio
+                
+                edited_imgs = torch.stack([
+                    self.transform['before_mixup_train'](Image.open(path).convert('RGB')) for path in exist_edited_img_paths
+                ])
+                
+                edited_ratios = torch.rand(edited_imgs.size(0))
+                edited_ratios = (edited_ratios / edited_ratios.sum()) * remaining_ratio
+                
+                mixed_image = original_img * original_ratio + (edited_imgs * edited_ratios.view(-1, 1, 1, 1)).sum(dim=0)
+                mixed_image = self.transform['after_mixup_train'](mixed_image)
+            else:
+                edited_imgs = torch.stack([
+                    self.transform['before_mixup_train'](Image.open(path).convert('RGB')) for path in exist_edited_img_paths
+                ])
+                all_images = torch.concat((edited_imgs, original_img.unsqueeze(0)), dim=0)
+                
+                edited_ratios = torch.rand(edited_imgs.size(0)+1)
+                edited_ratios = (edited_ratios / edited_ratios.sum())
+                
+                mixed_image = (all_images * edited_ratios.view(-1, 1, 1, 1)).sum(dim=0)
+                mixed_image = self.transform['after_mixup_train'](mixed_image)
             
             return mixed_image
         else:

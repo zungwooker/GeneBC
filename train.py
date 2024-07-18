@@ -10,6 +10,7 @@ def main():
     parser.add_argument('-conflict_ratio', required=True, type=str, help="conflict_ratio")
     parser.add_argument('-train_method', required=True, type=str, help="train method")
     parser.add_argument('-with_edited', action='store_true', help="train with edited images")
+    parser.add_argument('-exist_edited_img_paths', action='store_true', help="train with edited images")
     parser.add_argument('-lr', required=True, type=float, help="learning rate")
     parser.add_argument('-epochs', required=True, type=int, help="epochs")
     parser.add_argument('-batch_size', required=True, type=int, help="batch size")
