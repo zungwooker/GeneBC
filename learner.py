@@ -197,60 +197,60 @@ class Learner():
                 })
         
         
-    # def eval(self, model_name):
-    #     with torch.no_grad():
-    #         self.models[model_name] = self.models[model_name].to(self.device)
-    #         self.models[model_name].eval()
+    def eval(self, model_name):
+        with torch.no_grad():
+            self.models[model_name] = self.models[model_name].to(self.device)
+            self.models[model_name].eval()
             
-    #         splits = ['train', 'valid', 'test']
-    #         bias_attributes = ['whole', 'aligned', 'conflict']
-    #         metrics = {
-    #             'train': {},
-    #             'valid': {},
-    #             'test': {},
-    #         }
-    #         for split, bias_attribute in itertools.product(splits, bias_attributes):
-    #             metrics[split][bias_attribute] = {
-    #                 'total_loss': 0,
-    #                 'loss': None,
-    #                 'correct': 0,
-    #                 'total_num': 0,
-    #                 'accuracy': None,
-    #             }
-    #             for batch_idx, (X, y, bias, *_) in track(enumerate(self.dataloaders[split]), description=f'Eval | split {split}, bias_attr {bias_attribute} ...', total=len(self.dataloaders[split])):
-    #                 X, y, bias = X.to(self.device), y.to(self.device), bias.to(self.device)
+            splits = ['train', 'valid', 'test']
+            bias_attributes = ['whole', 'aligned', 'conflict']
+            metrics = {
+                'train': {},
+                'valid': {},
+                'test': {},
+            }
+            for split, bias_attribute in itertools.product(splits, bias_attributes):
+                metrics[split][bias_attribute] = {
+                    'total_loss': 0,
+                    'loss': None,
+                    'correct': 0,
+                    'total_num': 0,
+                    'accuracy': None,
+                }
+                for batch_idx, (X, y, bias, *_) in track(enumerate(self.dataloaders[split]), description=f'Eval | split {split}, bias_attr {bias_attribute} ...', total=len(self.dataloaders[split])):
+                    X, y, bias = X.to(self.device), y.to(self.device), bias.to(self.device)
                     
-    #                 if bias_attribute == 'aligned':
-    #                     X, y = X[y==bias], y[y==bias]
-    #                 if bias_attribute == 'conflict':
-    #                     X, y = X[y!=bias], y[y!=bias]
+                    if bias_attribute == 'aligned':
+                        X, y = X[y==bias], y[y==bias]
+                    if bias_attribute == 'conflict':
+                        X, y = X[y!=bias], y[y!=bias]
 
-    #                 # Case no B.C. in this batch.
-    #                 if X.size(0) == 0: continue
+                    # Case no B.C. in this batch.
+                    if X.size(0) == 0: continue
                         
-    #                 # Forward
-    #                 logits = self.models[model_name](X)
-    #                 CELoss = self.criterions['CELoss'](logits, y)
+                    # Forward
+                    logits = self.models[model_name](X)
+                    CELoss = self.criterions['CELoss'](logits, y)
                     
-    #                 # Calculate correct
-    #                 _, pred_labels = torch.max(logits, dim=1)
-    #                 correct = (pred_labels == y).sum()
+                    # Calculate correct
+                    _, pred_labels = torch.max(logits, dim=1)
+                    correct = (pred_labels == y).sum()
                     
-    #                 # Logging
-    #                 metrics[split][bias_attribute]['total_loss'] += CELoss.sum()
-    #                 metrics[split][bias_attribute]['total_num'] += y.size(0)
-    #                 metrics[split][bias_attribute]['correct'] += correct
+                    # Logging
+                    metrics[split][bias_attribute]['total_loss'] += CELoss.sum()
+                    metrics[split][bias_attribute]['total_num'] += y.size(0)
+                    metrics[split][bias_attribute]['correct'] += correct
                 
-    #             if metrics[split][bias_attribute]['total_num'] > 0:
-    #                 metrics[split][bias_attribute]['loss'] = metrics[split][bias_attribute]['total_loss']/metrics[split][bias_attribute]['total_num']
-    #                 metrics[split][bias_attribute]['accuracy'] = metrics[split][bias_attribute]['correct']/metrics[split][bias_attribute]['total_num']
-    #             else:
-    #                 metrics[split][bias_attribute]['loss'] = 0.0
-    #                 metrics[split][bias_attribute]['accuracy'] = 0.0      
+                if metrics[split][bias_attribute]['total_num'] > 0:
+                    metrics[split][bias_attribute]['loss'] = metrics[split][bias_attribute]['total_loss']/metrics[split][bias_attribute]['total_num']
+                    metrics[split][bias_attribute]['accuracy'] = metrics[split][bias_attribute]['correct']/metrics[split][bias_attribute]['total_num']
+                else:
+                    metrics[split][bias_attribute]['loss'] = 0.0
+                    metrics[split][bias_attribute]['accuracy'] = 0.0      
                 
         
-    #     self.metrics = metrics
-    #     print(metrics)
+        self.metrics = metrics
+        print(metrics)
         
     def evaluate(self, model, data_loader):
         model.eval()

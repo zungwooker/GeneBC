@@ -106,9 +106,9 @@ class IP2P:
             for image_id in track(tags_json, description=f"Editing... | class_idx: {class_idx}, bias: {bias_type}"):
                 if edited[image_id]: continue
                 
-                bias_tags_keys = list(self.itg_tag_stats[class_idx]['bias_tags'].keys())
-                result = all(tag not in tags_json[image_id]['tags'] for tag in bias_tags_keys)
-                if result: continue # That sample is bias-conflict; no need to edit that.
+                # bias_tags_keys = list(self.itg_tag_stats[class_idx]['bias_tags'].keys())
+                # result = all(tag not in tags_json[image_id]['tags'] for tag in bias_tags_keys)
+                # if result: continue # That sample is bias-conflict; no need to edit that.
                     
                 origin_image_path = os.path.join(self.args.root_path, 
                                                  'benchmarks', 
