@@ -64,7 +64,7 @@ class bFFHQDataset(Dataset):
             if with_edited and self.args.train_method in ['with_edited', 'lff']:
                 self.data = self.align + self.conflict
                 self.data += self.edited_align + self.edited_conflict
-            if self.args.train_method == 'naive':
+            if self.args.train_method in ['naive', 'baseline']:
                 self.data = self.align + self.conflict
             if self.args.train_method == 'mixup':
                 self.data = self.get_pairs()
@@ -167,7 +167,7 @@ class bFFHQDataset(Dataset):
 
             return mixed_image, class_idx, bias_idx, original_img_path
         
-        elif self.args.train_method in ['naive', 'with_edited'] or self.split != 'train':
+        elif self.args.train_method in ['naive', 'with_edited', 'baseline'] or self.split != 'train':
             class_idx = torch.tensor(int(self.data[index].split('_')[-2]))
             bias_idx = torch.tensor(int(self.data[index].split('_')[-1].split('.')[0]))
             image = Image.open(self.data[index]).convert('RGB')

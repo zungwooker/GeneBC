@@ -10,7 +10,7 @@ def main():
     parser.add_argument('-conflict_ratio', required=True, type=str, help="conflict_ratio")
     parser.add_argument('-train_method', required=True, type=str, help="train method")
     parser.add_argument('-with_edited', action='store_true', help="train with edited images")
-    parser.add_argument('-exist_edited_img_paths', action='store_true', help="train with edited images")
+    parser.add_argument('-maintain_origin_mixup', action='store_true', help="maintain origin image ratio in mixup")
     parser.add_argument('-lr', required=True, type=float, help="learning rate")
     parser.add_argument('-epochs', required=True, type=int, help="epochs")
     parser.add_argument('-batch_size', required=True, type=int, help="batch size")
@@ -23,7 +23,7 @@ def main():
     
     learner = Learner(args=args)
     learner.prepare()
-    
+    breakpoint()
     learner.wandb_switch(switch='start')
     
     if args.train_method in ['naive', 'with_edited', 'mixup']:
@@ -32,6 +32,18 @@ def main():
             learner.train(epoch=epoch)
             learner.eval(model_name='debiased')
             learner.wandb_log(epoch=epoch)
+        # Save
+        learner.save_model(model_name='debiased',
+                           save_name='debiased.pth')
+        
+    if args.train_method in ['baseline']:
+        # Train & eval
+        for epoch in range(1, args.epochs+1):
+            learner.train(epoch=epoch)
+            acc = learner.evaluate(model=learner.models['debiased'],
+                             data_loader=learner.dataloaders['test'])
+            print(f"epoch {epoch} | acc: {acc}" )
+            # learner.wandb_log(epoch=epoch)
         # Save
         learner.save_model(model_name='debiased',
                            save_name='debiased.pth')

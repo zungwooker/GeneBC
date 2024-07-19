@@ -21,7 +21,7 @@ def get_dataset(args,
         raise RuntimeError(f"class_name.json does not exist.\nPath: {class_name_path}")
     
     # Load tag_stats
-    if args.train_method not in ['naive']:
+    if args.train_method not in ['naive', 'baseline']:
         tag_stats_path = os.path.join(args.root_path, 
                                     args.preproc,
                                     args.dataset,

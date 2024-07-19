@@ -10,13 +10,13 @@ def get_model(dataset: str):
     if dataset == 'cmnist':
         model = MLP(num_classes=10)
     elif dataset == 'bffhq':
-        model = resnet18()
+        model = resnet18(pretrained=False)
         model.fc = nn.Linear(512, 2)
     elif dataset == 'bar':
         model = resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
         model.fc = nn.Linear(512, 6)
     elif dataset == 'dogs_and_cats':
-        model = resnet18()
+        model = resnet18(pretrained=False)
         model.fc = nn.Linear(512, 2)
     else:
         raise KeyError("Choose one of the four datasets: cmnist, bffhq, bar, dogs_and_cats")
