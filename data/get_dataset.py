@@ -1,5 +1,6 @@
 from .cmnist import *
 from .bffhq import bFFHQDataset
+from .bar import BARDataset
 import json
 
 def get_dataset(args,
@@ -56,7 +57,13 @@ def get_dataset(args,
                             class_name=class_name,
                             tag_stats=tag_stats)
     elif dataset == 'bar':
-        raise KeyError("bar dataset class is not ready.")
+        return BARDataset(split=split,
+                          args=args,
+                          conflict_ratio=conflict_ratio,
+                          root_path=root_path,
+                          with_edited=with_edited,
+                          class_name=class_name,
+                          tag_stats=tag_stats)
     elif dataset == 'dogs_and_cats':
         raise KeyError("dogs_and_cats dataset class is not ready.")
     else:

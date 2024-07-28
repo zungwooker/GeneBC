@@ -23,8 +23,6 @@ class bFFHQDataset(Dataset):
         self.transform = {
             "train": T.Compose([
                 T.Resize((224,224)),
-                T.RandomCrop(224, padding=4),
-                T.RandomHorizontalFlip(),
                 T.ToTensor(),
                 T.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
                 ]),

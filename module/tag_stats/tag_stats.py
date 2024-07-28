@@ -49,7 +49,7 @@ class TagStats():
         # and integrated tag_stats.json by class.
         for class_idx, bias_type in itertools.product(self.class_name, ['align', 'conflict']):
             # Base architecture of tag_stats.json
-            tag_stats = {'n_data': 0, 'tags': {}, 'n_bias': self.args.n_bias}
+            tag_stats = {'n_data': 0, 'tags': {}}
             
             # Load tags.json files for {class_idx, bias_type}
             tags_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, 'jsons', 'tags.json')
@@ -154,20 +154,21 @@ class TagStats():
             tags_sim = {}
             if len(tags) <= 1000:
                 tmp_tags = tags
-                res = self.classifier(f"A photo of a {self.class_name[class_idx]}", tmp_tags, multi_label=True)
+                res = self.classifier(f"{self.class_name[class_idx]}", tmp_tags, multi_label=True)
                 tmp_tags_sim = {res['labels'][j]: res['scores'][j] for j in range(len(tags))}
                 tags_sim.update(tmp_tags_sim)
             else:
                 for i in range(len(tags)//1000):
                     tmp_tags = tags[i*1000:(i+1)*1000]
-                    res = self.classifier(f"A photo of a {self.class_name[class_idx]}", tmp_tags, multi_label=True)
+                    res = self.classifier(f"{self.class_name[class_idx]}", tmp_tags, multi_label=True)
                     tmp_tags_sim = {res['labels'][j]: res['scores'][j] for j in range(1000)}
                     tags_sim.update(tmp_tags_sim)
                 tmp_tags = tags[(i+1)*1000:]
-                res = self.classifier(f"A photo of a {self.class_name[class_idx]}", tmp_tags, multi_label=True)
+                res = self.classifier(f"{self.class_name[class_idx]}", tmp_tags, multi_label=True)
                 tmp_tags_sim = {res['labels'][j]: res['scores'][j] for j in range(1000)}
                 tags_sim.update(tmp_tags_sim)
-            for tag in tags_sim:
+            
+            for tag in tags:
                 condition_3 = 1 if tags_sim[tag] < self.args.sim_thres else 0
                 self.itg_tag_stats[class_idx]['tags'][tag]['cond3'] = condition_3
 

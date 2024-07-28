@@ -6,6 +6,8 @@ from PIL import Image
 import itertools
 import gc
 from rich.progress import track
+import glob
+import shutil
 
 class IP2P:
     def __init__(self,
@@ -60,6 +62,12 @@ class IP2P:
                 resized_image = image.resize((28, 28), Image.BICUBIC)
             elif self.args.dataset == 'bffhq':
                 resized_image = image.resize((224, 224), Image.BICUBIC)
+            elif self.args.dataset == 'bar':
+                resized_image = image.resize((224, 224), Image.BICUBIC)
+            elif self.args.dataset == 'dogs_and_cats':
+                resized_image = image.resize((224, 224), Image.BICUBIC)
+            elif self.args.dataset == 'cifar10c':
+                resized_image = image.resize((32, 32), Image.BICUBIC)
             return resized_image
     
     def return_insts(self, class_name: str, bias_conflict_tags: list[str]):
@@ -70,6 +78,8 @@ class IP2P:
 
         iter_class = self.args.edit_class_idx.split(',') if self.args.edit_class_idx else self.class_name
         for class_idx, bias_type in itertools.product(iter_class, ['align', 'conflict']):
+            class_biases = self.itg_tag_stats[class_idx]['bias_tags']
+            
             # Load tags.json
             tags_json_path = os.path.join(self.args.root_path, 
                                           self.args.preproc, 
@@ -86,30 +96,12 @@ class IP2P:
             else:
                 raise RuntimeError(f"tags.json does not exist.\nPath: {tags_json_path}")
 
-            # Load edited.json
-            edited_json_path = os.path.join(self.args.root_path, 
-                                            self.args.preproc, 
-                                            self.args.dataset, 
-                                            self.args.conflict_ratio+'pct', 
-                                            bias_type, class_idx, 'jsons', 
-                                            'edited.json')
-            if os.path.exists(edited_json_path):
-                with open(edited_json_path, 'r') as file:
-                    try:
-                        edited = json.load(file)
-                    except json.JSONDecodeError:
-                        raise RuntimeError("An error occurred while loading the existing json file.")
-            else:
-                edited = {image_id: False for image_id in tags_json}
-            
-            edit_cnt = 0
+            # Start Editing
             for image_id in track(tags_json, description=f"Editing... | class_idx: {class_idx}, bias: {bias_type}"):
-                if edited[image_id]: continue
+                if not set(class_biases) & set(tags_json[image_id]['tags']):
+                    # This sample is not biased; no need to edit it.
+                    continue
                 
-                # bias_tags_keys = list(self.itg_tag_stats[class_idx]['bias_tags'].keys())
-                # result = all(tag not in tags_json[image_id]['tags'] for tag in bias_tags_keys)
-                # if result: continue # That sample is bias-conflict; no need to edit that.
-                    
                 origin_image_path = os.path.join(self.args.root_path, 
                                                  'benchmarks', 
                                                  self.args.dataset, 
@@ -119,26 +111,36 @@ class IP2P:
                 input_insts = self.return_insts(class_name=self.class_name[class_idx],
                                                 bias_conflict_tags=self.itg_tag_stats[class_idx]['bias_conflict_tags'])
                 for inst in input_insts:
-                    if self.args.bg_supvis and self.args.dataset == 'cmnist': 
-                        inst += ' and background black'
-                    images = self.pipe(inst, image=input_image, 
-                                       num_inference_steps=10, 
-                                       image_guidance_scale=self.args.image_guidance_scale,
-                                       generator=self.generator).images
                     save_path = os.path.join(self.args.root_path,
                                              self.args.preproc, 
                                              self.args.dataset, 
                                              self.args.conflict_ratio+'pct', 
                                              bias_type, class_idx, 'imgs', 
                                              f"{inst.replace(' ', '-')}_{image_id}")
-                    out_image = self.resize_image(inout='out', image=images[0])
-                    out_image.save(save_path, format='PNG')
-                
-                edited[image_id] = True
-                edit_cnt += 1
-                if edit_cnt % 10 == 0:
-                    with open(edited_json_path, 'w') as file:
-                        json.dump(edited, file, indent=4)
+                    # If the image exists, continue
+                    if os.path.exists(save_path):
+                        print(f"File exists: {save_path}")
+                        continue
+                    
+                    # If the image was generated before, just copy it.
+                    prev_generated_img_path = os.path.join(self.args.root_path,
+                                                           self.args.preproc, 
+                                                           self.args.dataset, 
+                                                           "*", # pct
+                                                           bias_type, class_idx, 'imgs', 
+                                                           f"{inst.replace(' ', '-')}_{image_id}")
+                    prev_generated_images = glob.glob(prev_generated_img_path)
+                    if len(prev_generated_images) > 0:
+                        shutil.copy(prev_generated_images[0], save_path)
+                        print(f"Copied: {save_path}")
+                    else:
+                        # Or not, generate it.
+                        images = self.pipe(inst, image=input_image, 
+                                           num_inference_steps=10, 
+                                           image_guidance_scale=self.args.image_guidance_scale,
+                                           generator=self.generator).images
+                        out_image = self.resize_image(inout='out', image=images[0])
+                        out_image.save(save_path, format='PNG')
                     
             print(f"[WIP] IP2P: Images have been edited. | class index: {class_idx} bias type: {bias_type}")
             

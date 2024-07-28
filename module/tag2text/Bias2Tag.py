@@ -57,13 +57,13 @@ class Bias2Tag():
         
         # For each class and align/conflict, generate tags.json.
         for class_idx, bias_type in itertools.product(self.class_name, ['align', 'conflict']):
-            image_paths = glob.glob(os.path.join(self.args.root_path, 'benchmarks', self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, '*.png'))
+            image_paths = glob.glob(os.path.join(self.args.root_path, 'benchmarks', self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, '*.*'))
 
             # Note that we do not use bias attribute during debiasing.
             json_dict = {}
             for image_path in track(image_paths, description=f"tags.json... | class_idx: {class_idx}, bias: {bias_type}"):
                 bias_idx = image_path.split('/')[-1].split('_')[-1][0]
-                image_id = image_path.split('/')[-1] # *.png
+                image_id = image_path.split('/')[-1] # *.png or *.jpg
                 
                 # Inference tags and caption.
                 image = transform(Image.open(image_path)).unsqueeze(0).to(self.device)
