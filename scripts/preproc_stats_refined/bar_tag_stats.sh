@@ -11,9 +11,7 @@ python preprocess.py \
     -random_seed 0 \
     -tag2text_thres 0.68 \
     -sim_thres 0.93 \
-    -image_guidance_scale 1.0 \
-    -generate_gate \
-    -email "KM 0: BAR refined generated. 1pct"
+    -compute_tag_stats
 
 python preprocess.py \
     -gpu_num 2 \
@@ -26,6 +24,4 @@ python preprocess.py \
     -random_seed 0 \
     -tag2text_thres 0.68 \
     -sim_thres 0.93 \
-    -image_guidance_scale 1.0 \
-    -generate_gate \
-    -email "KM 0: BAR refined generated. 5pct"
+    -compute_tag_stats

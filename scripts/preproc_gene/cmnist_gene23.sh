@@ -16,7 +16,7 @@
 #     -email 'CMNIST 0.5pct generating done.'
 
 python preprocess.py \
-    -gpu_num 0 \
+    -gpu_num 3 \
     -dataset cmnist \
     -conflict_ratio '1' \
     -n_bias 1 \
@@ -28,7 +28,8 @@ python preprocess.py \
     -sim_thres 0.95 \
     -image_guidance_scale 1.0 \
     -generate_gate \
-    -email 'CMNIST 1pct generating done.'
+    -email 'KM3: CMNIST(2,3) 1pct generating done.' \
+    -edit_class_idx '2,3'
 
 # python preprocess.py \
 #     -gpu_num 0 \

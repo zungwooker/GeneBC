@@ -193,6 +193,14 @@ class TagStats():
         for class_idx in self.class_name:
             for bias_tag in self.itg_tag_stats[class_idx]['bias_tags']:
                 biases.add(bias_tag)
+        biases = list(biases)
+                
+        # Do not use biases that have the same meaning as a specific class as bias-conflict attributes.
+        bias_class_scores = self.classifier([value for value in self.class_name.values()], biases, multi_label=True)
+        confusing_biases = []
+        for i in range(len(self.class_name)):
+            confusing_biases += [label for score, label in zip(bias_class_scores[i]['scores'], bias_class_scores[i]['labels']) if score >= self.args.sim_thres]
+        confusing_biases = set(confusing_biases)
                 
         for class_idx in self.class_name:
             tmp_biases = list(biases)
@@ -200,6 +208,7 @@ class TagStats():
                 if bias_tag in tmp_biases:
                     tmp_biases.remove(bias_tag)
             
+            tmp_biases = list(set(tmp_biases) - confusing_biases)
             self.itg_tag_stats[class_idx]['bias_conflict_tags'] = tmp_biases
             
         save_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', 'tag_stats.json')
