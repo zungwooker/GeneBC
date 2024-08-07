@@ -84,13 +84,14 @@ def main():
     
     # Make tag_stats.json
     if args.compute_tag_stats:
-        timer.start_record(task_name='tag_stats')
+        # timer.start_record(task_name='tag_stats')
         tag_stats = TagStats(args=args, class_name=class_name)
-        tag_stats.generate_tag_stats()
-        tag_stats.integrate_tag_stats()
-        tag_stats.condition_bias()
-        tag_stats.mix_bias()
-        timer.end_record(task_name='tag_stats')
+        # tag_stats.generate_tag_stats()
+        # tag_stats.integrate_tag_stats()
+        # tag_stats.condition_bias()
+        # tag_stats.mix_bias()
+        tag_stats.class_bias_stats()
+        # timer.end_record(task_name='tag_stats')
 
     # Generate images
     if args.generate_gate:

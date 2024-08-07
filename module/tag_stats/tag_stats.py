@@ -4,12 +4,16 @@ import os
 import torch
 import gc
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+from tqdm import tqdm
+import copy
 
 class TagStats():
     def __init__(self, args, class_name: dict) -> None:
         self.args = args
         self.class_name = class_name
         self.device = torch.device(f'cuda:{str(args.gpu_num)}' if torch.cuda.is_available() else 'cpu')
+        self.original_class_bias_stats = {}
+        self.generated_class_bias_stats = {}
         
         
     def load_model(self):
@@ -216,3 +220,87 @@ class TagStats():
             json.dump(self.itg_tag_stats, file, indent=4)
             
         print("[Done] Bias candidates: tag_stats.json files have been made.")
+            
+    def class_bias_stats(self):
+        itg_tag_stats_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', 'tag_stats.json')
+        if os.path.exists(itg_tag_stats_path):
+            with open(itg_tag_stats_path, 'r') as file:
+                try:
+                    self.itg_tag_stats = json.load(file)
+                except json.JSONDecodeError:
+                    raise RuntimeError("An error occurred while loading the existing json file.")
+        else:
+            raise RuntimeError(f"tag_stats.json does not exist.\nPath: {itg_tag_stats_path}")
+        
+        # For original
+        class_biases = [self.itg_tag_stats[class_idx]['bias_tags'] for class_idx in self.class_name]
+        class_biases = set([bias for sublist in class_biases for bias in sublist])
+
+        for class_idx in self.class_name:
+            self.original_class_bias_stats[class_idx] = {
+                bias: [] for bias in class_biases
+            }
+            self.original_class_bias_stats[class_idx]['none'] = []
+            
+            for bias_type in ['align', 'conflict']:
+                # Original dataset path
+                origin_prepath = os.path.join(self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx)
+                # Load tags.json files for {class_idx, bias_type}
+                tag_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, 'jsons', 'tags.json')
+                if os.path.exists(tag_json_path):
+                    with open(tag_json_path, 'r') as file:
+                        try:
+                            tags = json.load(file)
+                        except json.JSONDecodeError:
+                            raise RuntimeError("An error occurred while loading the existing json file.")
+                else:
+                    raise RuntimeError(f"tag_stats.json does not exist.\nPath: {tag_json_path}")
+                
+                for image_id in tqdm(tags, desc=f"Original: {class_idx}, {bias_type}"):
+                    none_flag = True
+                    for bias in self.original_class_bias_stats[class_idx]:
+                        if bias in tags[image_id]['tags']:
+                            self.original_class_bias_stats[class_idx][bias].append(os.path.join(origin_prepath, image_id))
+                            none_flag = False
+                    if none_flag:
+                        self.original_class_bias_stats[class_idx]['none'].append(os.path.join(origin_prepath, image_id))
+        
+        # For generated
+        class_biases = [self.itg_tag_stats[class_idx]['bias_conflict_tags'] for class_idx in self.class_name]
+        class_biases = set([bias for sublist in class_biases for bias in sublist])
+        
+        for class_idx in self.class_name:
+            self.generated_class_bias_stats[class_idx] = {
+                bias: [] for bias in class_biases
+            }
+            self.generated_class_bias_stats[class_idx]['none'] = []
+            
+            for bias_type in ['align', 'conflict']:
+                # Original dataset path
+                generated_prepath = os.path.join(self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, 'imgs')
+                # Load tags.json files for {class_idx, bias_type}
+                tag_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, 'jsons', 'tags.json')
+                if os.path.exists(tag_json_path):
+                    with open(tag_json_path, 'r') as file:
+                        try:
+                            tags = json.load(file)
+                        except json.JSONDecodeError:
+                            raise RuntimeError("An error occurred while loading the existing json file.")
+                else:
+                    raise RuntimeError(f"tag_stats.json does not exist.\nPath: {tag_json_path}")
+                
+                for image_id in tqdm(tags, desc=f"Generated: {class_idx}, {bias_type}"):
+                    none_flag = True
+                    for bias in self.generated_class_bias_stats[class_idx]:
+                        if bias in tags[image_id]['tags']:
+                            tmp_class_biases = copy.deepcopy(list(class_biases))
+                            tmp_class_biases.remove(bias)
+                            for bias_conflict_attr in tmp_class_biases:
+                                self.generated_class_bias_stats[class_idx][bias_conflict_attr].append(os.path.join(generated_prepath, f"Turn-{self.class_name[class_idx]}-into-{self.class_name[class_idx]}-{bias_conflict_attr}_".replace(' ', '-')+image_id))
+                            none_flag = False
+                    if none_flag:
+                        self.generated_class_bias_stats[class_idx]['none'].append(os.path.join(generated_prepath, image_id))
+        # Save json.
+        save_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', 'generated_class_bias_stats.json')
+        with open(save_json_path, 'w') as file:
+            json.dump(self.generated_class_bias_stats, file, indent=4)
