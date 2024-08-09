@@ -14,6 +14,7 @@ class TagStats():
         self.device = torch.device(f'cuda:{str(args.gpu_num)}' if torch.cuda.is_available() else 'cpu')
         self.original_class_bias_stats = {}
         self.generated_class_bias_stats = {}
+        self.origin2gene = {}
         
         
     def load_model(self):
@@ -244,7 +245,7 @@ class TagStats():
             
             for bias_type in ['align', 'conflict']:
                 # Original dataset path
-                origin_prepath = os.path.join(self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx)
+                origin_prepath = os.path.join(bias_type, class_idx)
                 # Load tags.json files for {class_idx, bias_type}
                 tag_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, 'jsons', 'tags.json')
                 if os.path.exists(tag_json_path):
@@ -256,6 +257,7 @@ class TagStats():
                 else:
                     raise RuntimeError(f"tag_stats.json does not exist.\nPath: {tag_json_path}")
                 
+                # 'none'은 어떤 bias tag도 탐지되지 않은 것 -> attr 모르는 샘플(conflict)
                 for image_id in tqdm(tags, desc=f"Original: {class_idx}, {bias_type}"):
                     none_flag = True
                     for bias in self.original_class_bias_stats[class_idx]:
@@ -264,6 +266,11 @@ class TagStats():
                             none_flag = False
                     if none_flag:
                         self.original_class_bias_stats[class_idx]['none'].append(os.path.join(origin_prepath, image_id))
+                        
+        # Save json.
+        save_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', 'original_class_bias_stats.json')
+        with open(save_json_path, 'w') as file:
+            json.dump(self.original_class_bias_stats, file, indent=4)
         
         # For generated
         class_biases = [self.itg_tag_stats[class_idx]['bias_conflict_tags'] for class_idx in self.class_name]
@@ -274,10 +281,12 @@ class TagStats():
                 bias: [] for bias in class_biases
             }
             self.generated_class_bias_stats[class_idx]['none'] = []
+
+            bias = list(self.itg_tag_stats[class_idx]['bias_tags'].keys())[0]
             
             for bias_type in ['align', 'conflict']:
                 # Original dataset path
-                generated_prepath = os.path.join(self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, 'imgs')
+                generated_prepath = os.path.join(bias_type, class_idx, 'imgs')
                 # Load tags.json files for {class_idx, bias_type}
                 tag_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, 'jsons', 'tags.json')
                 if os.path.exists(tag_json_path):
@@ -291,16 +300,47 @@ class TagStats():
                 
                 for image_id in tqdm(tags, desc=f"Generated: {class_idx}, {bias_type}"):
                     none_flag = True
-                    for bias in self.generated_class_bias_stats[class_idx]:
-                        if bias in tags[image_id]['tags']:
-                            tmp_class_biases = copy.deepcopy(list(class_biases))
-                            tmp_class_biases.remove(bias)
-                            for bias_conflict_attr in tmp_class_biases:
-                                self.generated_class_bias_stats[class_idx][bias_conflict_attr].append(os.path.join(generated_prepath, f"Turn-{self.class_name[class_idx]}-into-{self.class_name[class_idx]}-{bias_conflict_attr}_".replace(' ', '-')+image_id))
-                            none_flag = False
-                    if none_flag:
+                    if bias in tags[image_id]['tags']:
+                        tmp_class_biases = copy.deepcopy(list(class_biases))
+                        tmp_class_biases.remove(bias)
+                        for bias_conflict_attr in tmp_class_biases:
+                            self.generated_class_bias_stats[class_idx][bias_conflict_attr].append(os.path.join(generated_prepath, f"Turn-{self.class_name[class_idx]}-into-{self.class_name[class_idx]}-{bias_conflict_attr}_".replace(' ', '-')+image_id))
+                    else:
                         self.generated_class_bias_stats[class_idx]['none'].append(os.path.join(generated_prepath, image_id))
         # Save json.
         save_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', 'generated_class_bias_stats.json')
         with open(save_json_path, 'w') as file:
             json.dump(self.generated_class_bias_stats, file, indent=4)
+            
+        # origin2gene
+        for class_idx in self.class_name:
+            bias = list(self.itg_tag_stats[class_idx]['bias_tags'])[0]
+            bias_conflict_attrs = self.itg_tag_stats[class_idx]['bias_conflict_tags']
+            
+            for bias_type in ['align', 'conflict']:
+                # Original dataset path
+                origin_prepath = os.path.join(bias_type, class_idx)
+                
+                # Load tags.json files for {class_idx, bias_type}
+                tag_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', bias_type, class_idx, 'jsons', 'tags.json')
+                if os.path.exists(tag_json_path):
+                    with open(tag_json_path, 'r') as file:
+                        try:
+                            tags = json.load(file)
+                        except json.JSONDecodeError:
+                            raise RuntimeError("An error occurred while loading the existing json file.")
+                else:
+                    raise RuntimeError(f"tag_stats.json does not exist.\nPath: {tag_json_path}")
+                
+                for image_id in tqdm(tags, desc=f"origin2gene: {class_idx}, {bias_type}"):
+                    if bias in tags[image_id]['tags']:
+                        tmp_paths = [os.path.join(origin_prepath, 'imgs', f"Turn-{self.class_name[class_idx]}-into-{self.class_name[class_idx]}-{bias_conflict_attr}_".replace(' ', '-')+image_id) for bias_conflict_attr in bias_conflict_attrs]
+                        self.origin2gene[os.path.join(origin_prepath, image_id)] = tmp_paths
+                    else:
+                        self.origin2gene[os.path.join(origin_prepath, image_id)] = False
+                    none_flag = True
+                    
+        # Save json.
+        save_json_path = os.path.join(self.args.root_path, self.args.preproc, self.args.dataset, self.args.conflict_ratio+'pct', 'origin2gene.json')
+        with open(save_json_path, 'w') as file:
+            json.dump(self.origin2gene, file, indent=4)
