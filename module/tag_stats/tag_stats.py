@@ -302,7 +302,8 @@ class TagStats():
                     none_flag = True
                     if bias in tags[image_id]['tags']:
                         tmp_class_biases = copy.deepcopy(list(class_biases))
-                        tmp_class_biases.remove(bias)
+                        if bias in tmp_class_biases:
+                            tmp_class_biases.remove(bias)
                         for bias_conflict_attr in tmp_class_biases:
                             self.generated_class_bias_stats[class_idx][bias_conflict_attr].append(os.path.join(generated_prepath, f"Turn-{self.class_name[class_idx]}-into-{self.class_name[class_idx]}-{bias_conflict_attr}_".replace(' ', '-')+image_id))
                     else:
